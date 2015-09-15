@@ -13,17 +13,25 @@
         var mapCanvas = document.getElementById('map');
         var mapOptions = {
           center: new google.maps.LatLng(-34.597390, -58.374336),
-          zoom: 8,
+          zoom: 4,
           mapTypeId: google.maps.MapTypeId.ROADMAP
         }
         var map = new google.maps.Map(mapCanvas, mapOptions)
 
         var startPoint = {lat: -34.597390, lng: -58.374336};
+        
+        var markerInfo = new google.maps.InfoWindow({
+          content: 'Arranco aca!'
+        });
 
         var marker = new google.maps.Marker({
           position: startPoint,
           map: map,
-          title: 'Arranco aca'
+          title: 'Arranco aca!'
+        });
+
+        marker.addListener('click', function() {
+          markerInfo.open(map, marker);
         });
 
       }
