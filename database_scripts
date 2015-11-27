@@ -1,0 +1,131 @@
+# create result table
+
+CREATE SEQUENCE public.countries_rasters_rid_seq
+  INCREMENT 1
+  MINVALUE 1
+  MAXVALUE 9223372036854775807
+  START 1
+  CACHE 1;
+ALTER TABLE public.countries_rasters_rid_seq
+  OWNER TO tomymehdi;
+
+CREATE TABLE public.countries_rasters
+(
+  rid integer NOT NULL DEFAULT nextval('countries_rasters_rid_seq'::regclass),
+  rast raster,
+  iso3 character(3),
+  CONSTRAINT countries_rasters_pkey PRIMARY KEY (rid)
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE public.countries_rasters
+  OWNER TO tomymehdi;
+
+# iterate all tables
+# exceptions usa, and
+
+DO
+$do$
+DECLARE
+   m   varchar;
+   arr varchar[] := array['atg', 'dza', 'aze', 'alb', 'arm', 'ago', 'asm', 'arg', 'aus', 'bhr', 'brb', 'bmu', 'bhs', 'bgd', 'blz', 'bih', 'bol', 'mmr', 'ben', 'slb', 'bra', 'bgr', 'brn', 'can', 'khm', 'lka', 'cog', 'cod', 'bdi', 'chn', 'afg', 'btn', 'chl', 'cym', 'cmr', 'tcd', 'com', 'col', 'cri', 'caf', 'cub', 'cpv', 'cok', 'cyp', 'dnk', 'dji', 'dma', 'dom', 'ecu', 'egy', 'irl', 'gnq', 'est', 'eri', 'slv', 'eth', 'aut', 'cze', 'guf', 'fin', 'fji', 'flk', 'fsm', 'pyf', 'fra', 'gmb', 'gab', 'geo', 'gha', 'grd', 'grl', 'deu', 'gum', 'grc', 'gtm', 'gin', 'guy', 'hti', 'hnd', 'hrv', 'hun', 'isl', 'ind', 'irn', 'isr', 'ita', 'civ', 'irq', 'jpn', 'jam', 'jor', 'ken', 'kgz', 'prk', 'kir', 'kor', 'kwt', 'kaz', 'lao', 'lbn', 'lva', 'blr', 'ltu', 'lbr', 'svk', 'lie', 'lby', 'mdg', 'mtq', 'mng', 'msr', 'mkd', 'mli', 'mar', 'mus', 'mrt', 'mlt', 'omn', 'mdv', 'mex', 'mys', 'moz', 'mwi', 'ncl', 'niu', 'ner', 'abw', 'aia', 'bel', 'hkg', 'mnp', 'fro', 'gib', 'imn', 'lux', 'mac', 'mco', 'pse', 'mne', 'myt', 'ala', 'nfk', 'cck', 'ata', 'bvt', 'atf', 'hmd', 'iot', 'cxr', 'umi', 'vut', 'nga', 'nld', 'nor', 'npl', 'nru', 'sur', 'nic', 'nzl', 'pry', 'per', 'pak', 'pol', 'pan', 'prt', 'png', 'gnb', 'qat', 'reu', 'rou', 'mda', 'phl', 'pri', 'rus', 'rwa', 'sau', 'kna', 'syc', 'zaf', 'lso', 'bwa', 'sen', 'svn', 'sle', 'sgp', 'som', 'esp', 'lca', 'sdn', 'swe', 'syr', 'che', 'tto', 'tha', 'tjk', 'tkl', 'ton', 'tgo', 'stp', 'tun', 'tur', 'tuv', 'tkm', 'tza', 'uga', 'gbr', 'ukr', 'bfa', 'ury', 'uzb', 'vct', 'ven', 'vgb', 'vnm', 'vir', 'nam', 'wlf', 'wsm', 'swz', 'yem', 'zmb', 'zwe', 'idn', 'glp', 'ant', 'are', 'tls', 'pcn', 'plw', 'mhl', 'spm', 'shn', 'smr', 'tca', 'esh', 'srb', 'vat', 'sjm', 'maf', 'blm', 'ggy', 'jey', 'sgs', 'twn'];
+   query text := 'INSERT INTO countries_rasters(iso3, rast) VALUES ($1, ';
+BEGIN
+   FOREACH m IN ARRAY arr
+   LOOP
+      RAISE NOTICE '%', m;
+      EXECUTE query || '(SELECT rast from ' || m || '));'
+      USING m;
+   END LOOP;
+END
+$do$
+
+# usa
+INSERT INTO countries_rasters(iso3, rast) SELECT 'usa', rast FROM usa;
+# and
+INSERT INTO countries_rasters(iso3, rast) VALUES ('and', (SELECT rast FROM and))
+
+# query values with count
+
+SELECT (pvc).COUNT, (pvc).COUNT, (pvc).VALUE
+FROM countries_rasters, ST_ValueCount(countries_rasters.rast,1) AS pvc
+ORDER BY (pvc).VALUE;
+
+# create table with ligth avg
+SELECT countries_rasters.iso3, AVG(pvc.COUNT*pvc.VALUE)
+FROM countries_rasters, ST_ValueCount(countries_rasters.rast,1) AS pvc
+WHERE countries_rasters.iso3 = 'arg'
+GROUP BY countries_rasters.iso3;
+
+# get country area of argentina
+SELECT ST_Area(world_borders.geom)*10000
+FROM world_borders
+WHERE iso3 = 'ARG'
+
+# combinations of both
+SELECT countries_rasters.iso3, SUM(pvc.COUNT)/(SELECT ST_Area(world_borders.geom)*10000
+FROM world_borders
+WHERE iso3 = 'NZL')
+FROM countries_rasters, ST_ValueCount(countries_rasters.rast,1) AS pvc
+WHERE countries_rasters.iso3 = 'nzl'
+GROUP BY countries_rasters.iso3;
+
+# table of light results
+CREATE TABLE public.lights_indices
+(
+  iso3 character(3),
+  avg_light_per_sqkm double precision,
+  light_per_sqkm double precision
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE public.lights_indices
+  OWNER TO spatialdb;
+
+# iteration
+
+DO
+$do$
+DECLARE
+   m   varchar;
+   arr varchar[] := array['atg', 'dza', 'aze', 'alb', 'arm', 'ago', 'asm', 'arg', 'aus', 'bhr', 'brb', 'bmu', 'bhs', 'bgd', 'blz', 'bih', 'bol', 'mmr', 'ben', 'slb', 'bra', 'bgr', 'brn', 'can', 'khm', 'lka', 'cog', 'cod', 'bdi', 'chn', 'afg', 'btn', 'chl', 'cym', 'cmr', 'tcd', 'com', 'col', 'cri', 'caf', 'cub', 'cpv', 'cok', 'cyp', 'dnk', 'dji', 'dma', 'dom', 'ecu', 'egy', 'irl', 'gnq', 'est', 'eri', 'slv', 'eth', 'aut', 'cze', 'guf', 'fin', 'fji', 'flk', 'fsm', 'pyf', 'fra', 'gmb', 'gab', 'geo', 'gha', 'grd', 'grl', 'deu', 'gum', 'grc', 'gtm', 'gin', 'guy', 'hti', 'hnd', 'hrv', 'hun', 'isl', 'ind', 'irn', 'isr', 'ita', 'civ', 'irq', 'jpn', 'jam', 'jor', 'ken', 'kgz', 'prk', 'kir', 'kor', 'kwt', 'kaz', 'lao', 'lbn', 'lva', 'blr', 'ltu', 'lbr', 'svk', 'lie', 'lby', 'mdg', 'mtq', 'mng', 'msr', 'mkd', 'mli', 'mar', 'mus', 'mrt', 'mlt', 'omn', 'mdv', 'mex', 'mys', 'moz', 'mwi', 'ncl', 'niu', 'ner', 'abw', 'aia', 'bel', 'hkg', 'mnp', 'fro', 'gib', 'imn', 'lux', 'mac', 'mco', 'pse', 'mne', 'myt', 'ala', 'nfk', 'cck', 'ata', 'bvt', 'atf', 'hmd', 'iot', 'cxr', 'umi', 'vut', 'nga', 'nld', 'nor', 'npl', 'nru', 'sur', 'nic', 'nzl', 'pry', 'per', 'pak', 'pol', 'pan', 'prt', 'png', 'gnb', 'qat', 'reu', 'rou', 'mda', 'phl', 'pri', 'rus', 'rwa', 'sau', 'kna', 'syc', 'zaf', 'lso', 'bwa', 'sen', 'svn', 'sle', 'sgp', 'som', 'esp', 'lca', 'sdn', 'swe', 'syr', 'che', 'tto', 'tha', 'tjk', 'tkl', 'ton', 'tgo', 'stp', 'tun', 'tur', 'tuv', 'tkm', 'tza', 'uga', 'gbr', 'ukr', 'bfa', 'ury', 'uzb', 'vct', 'ven', 'vgb', 'vnm', 'vir', 'nam', 'wlf', 'wsm', 'swz', 'yem', 'zmb', 'zwe', 'idn', 'glp', 'ant', 'are', 'tls', 'pcn', 'plw', 'mhl', 'spm', 'shn', 'smr', 'tca', 'esh', 'srb', 'vat', 'sjm', 'maf', 'blm', 'ggy', 'jey', 'sgs', 'twn'];
+   query text := 'INSERT INTO lights_indices(iso3, light_per_sqkm, avg_light_per_sqkm)
+                  SELECT countries_rasters.iso3, SUM(pvc.COUNT)/(SELECT ST_Area(world_borders.geom)*10000
+                  FROM world_borders
+                  WHERE iso3 = $1), AVG(pvc.COUNT*pvc.VALUE)/(SELECT ST_Area(world_borders.geom)*10000
+                  FROM world_borders
+                  WHERE iso3 = $1)
+                  FROM countries_rasters, ST_ValueCount(countries_rasters.rast,1) AS pvc
+                  WHERE countries_rasters.iso3 = $2
+                  GROUP BY countries_rasters.iso3;';
+BEGIN
+   FOREACH m IN ARRAY arr
+   LOOP
+      RAISE NOTICE '%', m;
+      EXECUTE query
+      USING upper(m), m;
+   END LOOP;
+END
+$do$
+
+# and
+INSERT INTO lights_indices(iso3, light_per_sqkm, avg_light_per_sqkm)
+                  SELECT countries_rasters.iso3, SUM(pvc.COUNT)/(SELECT ST_Area(world_borders.geom)*10000
+                  FROM world_borders
+                  WHERE iso3 = 'AND'), AVG(pvc.COUNT*pvc.VALUE)/(SELECT ST_Area(world_borders.geom)*10000
+                  FROM world_borders
+                  WHERE iso3 = 'AND')
+                  FROM countries_rasters, ST_ValueCount(countries_rasters.rast,1) AS pvc
+                  WHERE countries_rasters.iso3 = 'and'
+                  GROUP BY countries_rasters.iso3;
+# usa
+
+# update borders
+UPDATE world_borders
+SET light_per_sqkm = subquery.light_per_sqkm,
+    avg_light_per_sqkm = subquery.avg_light_per_sqkm
+FROM (SELECT * FROM lights_indices) AS subquery
+WHERE upper(subquery.iso3) = world_borders.iso3;
+
